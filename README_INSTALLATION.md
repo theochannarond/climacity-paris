@@ -1,7 +1,16 @@
 # ClimaCity Paris -- Guide d'installation
 
-Environnement Docker pour le projet PySpark "ClimaCity Paris".  
-Contient JupyterLab, PySpark 3.5, Delta Lake 3.2 et MLflow 2.17.
+Environnement Docker du projet PySpark « ClimaCity Paris » : JupyterLab, PySpark 3.5, Delta Lake 3.2 et MLflow 2.17.
+
+**En bref :**
+
+```bash
+docker compose build jupyter   # 5-10 min, ~2 Go
+docker compose up -d           # puis attendre 30 s
+docker compose ps              # climacity-jupyter et climacity-mlflow : healthy
+```
+
+JupyterLab est ensuite accessible sur http://localhost:8888 (token : `climacity`).
 
 ---
 
@@ -14,28 +23,28 @@ Contient JupyterLab, PySpark 3.5, Delta Lake 3.2 et MLflow 2.17.
 | RAM disponible | 8 Go (6 Go alloués à Docker) | -- |
 | Espace disque | 10 Go libres | -- |
 
-> **Windows** : Docker Desktop doit être configuré pour utiliser le backend WSL 2
-> (Paramètres -> General -> "Use the WSL 2 based engine").  
+> **Windows** : Docker Desktop doit utiliser le backend WSL 2
+> (Paramètres -> General -> « Use the WSL 2 based engine »).
 > **macOS Apple Silicon** : l'image est compatible arm64/amd64 via Rosetta.
 
 ---
 
 ## Installation (première fois)
 
-### 1. Cloner ou télécharger le projet
+### 1. Récupérer le projet
 
 ```bash
 # Via Git
 git clone <url-du-depot> climacity-paris
 cd climacity-paris
 
-# Ou extraire l'archive ZIP fournie par l'enseignant, puis :
+# Ou, avec l'archive ZIP fournie par l'enseignant : l'extraire, puis
 cd climacity-paris
 ```
 
-### 2. Ajuster les ressources si nécessaire
+### 2. Ajuster les ressources
 
-Ouvrez le fichier `.env` et adaptez les valeurs à votre machine :
+Adaptez le fichier `.env` à votre machine :
 
 ```
 # Laptop 8 Go RAM (défaut)
@@ -47,32 +56,27 @@ DOCKER_MEMORY_LIMIT=10g
 SPARK_DRIVER_MEMORY=7g
 ```
 
-> Sur macOS/Linux vous pouvez aussi utiliser `make` : `make help` liste toutes
-> les commandes disponibles.
+> Sur macOS/Linux, `make help` liste toutes les commandes du `Makefile`.
 
 ### 3. Construire l'image
 
 ```bash
 docker compose build jupyter
-# Durée : 5-10 minutes selon la connexion (télécharge ~2 Go)
 ```
 
-L'image inclut les JARs Delta Lake -- aucun téléchargement supplémentaire
-ne sera nécessaire lors de la création des SparkSessions.
+Durée : 5-10 minutes selon la connexion (~2 Go téléchargés). L'image embarque
+les JARs Delta Lake : aucun téléchargement ne sera nécessaire à la création
+des SparkSessions.
 
-### 4. Démarrer les services
+### 4. Démarrer et vérifier
 
 ```bash
 docker compose up -d
-```
-
-Attendez 30 secondes, puis vérifiez que les deux services sont démarrés :
-
-```bash
 docker compose ps
 ```
 
-Vous devez voir `climacity-jupyter` et `climacity-mlflow` avec le statut `healthy`.
+Attendez 30 secondes : `climacity-jupyter` et `climacity-mlflow` doivent
+afficher le statut `healthy`.
 
 ---
 
@@ -84,8 +88,9 @@ Vous devez voir `climacity-jupyter` et `climacity-mlflow` avec le statut `health
 | Spark UI | http://localhost:4040 | Aucun (disponible après `getOrCreate()`) |
 | MLflow UI | http://localhost:5000 | Aucun |
 
-> Le **Spark UI** n'est disponible qu'après la création d'une `SparkSession` dans
-> un notebook. Si vous voyez "Ce site est inaccessible", créez d'abord une session.
+> Le **Spark UI** n'existe qu'une fois une `SparkSession` créée dans un
+> notebook. Si le navigateur affiche « Ce site est inaccessible », créez
+> d'abord une session.
 
 ---
 
@@ -120,45 +125,39 @@ climacity-paris/
     └── output/              # Sorties : Delta, modèles, résultats
 ```
 
-Les répertoires `notebooks/`, `scripts/` et `data/` sont des **volumes montés** :
-les modifications faites dans le conteneur sont immédiatement visibles sur l'hôte,
-et vice versa. Vos données et notebooks sont persistés entre les redémarrages.
+`notebooks/`, `scripts/` et `data/` sont des **volumes montés** : les
+modifications faites dans le conteneur sont visibles immédiatement sur l'hôte,
+et inversement. Vos données et notebooks survivent aux redémarrages.
 
 ---
 
 ## Commandes courantes
 
-```bash
-# Démarrer
-docker compose up -d
+| Action | Commande |
+|--------|----------|
+| Démarrer | `docker compose up -d` |
+| Arrêter (données conservées) | `docker compose stop` |
+| Redémarrer | `docker compose restart` |
+| Suivre les logs | `docker compose logs -f` |
+| Ouvrir un terminal dans le conteneur | `docker exec -it climacity-jupyter bash` |
+| Supprimer les conteneurs (volumes conservés) | `docker compose down` |
+| Réinitialisation complète | `docker compose down --volumes` |
 
-# Arrêter (conserve les données)
-docker compose stop
-
-# Redémarrer
-docker compose restart
-
-# Voir les logs en temps réel
-docker compose logs -f
-
-# Ouvrir un terminal dans le conteneur
-docker exec -it climacity-jupyter bash
-
-# Arrêter et supprimer les conteneurs (les volumes sont conservés)
-docker compose down
-
-# Réinitialisation complète (SUPPRIME les données MLflow dans le volume Docker)
-docker compose down --volumes
-```
+> ⚠️ `docker compose down --volumes` **supprime** les données MLflow du volume Docker.
 
 ---
 
-## Résolution des problèmes courants
+## Dépannage
 
-### "Port already in use" au démarrage
+| Symptôme | Cause | Solution |
+|----------|-------|----------|
+| « Port already in use » au démarrage | Un autre service occupe le port 8888, 4040 ou 5000 | Changer les ports dans `.env` (voir ci-dessous), puis `docker compose up -d` |
+| Spark UI (4040) inaccessible | Aucune SparkSession n'existe encore | Exécuter la cellule `SparkSession.builder...getOrCreate()`, attendre 5 s, recharger http://localhost:4040 |
+| `OutOfMemoryError` dans un notebook | Mémoire allouée insuffisante | Augmenter la mémoire dans `.env` (voir ci-dessous), puis `docker compose down` et `docker compose up -d` |
+| Le simulateur de flux ne produit aucun fichier (Jour 2) | Il n'est pas lancé dans un terminal séparé du conteneur | Voir ci-dessous |
+| Échec de `docker compose build` | Le réseau bloque Maven Central (source des JARs Delta Lake) | Utiliser l'image pré-construite (voir ci-dessous) |
 
-Un autre service utilise le port 8888 (ou 4040, ou 5000).  
-Modifiez les ports dans `.env` :
+**Changer les ports** (`.env`) :
 
 ```
 JUPYTER_PORT=8889
@@ -166,35 +165,15 @@ SPARK_UI_PORT=4041
 MLFLOW_PORT=5001
 ```
 
-Puis redémarrez : `docker compose up -d`.
-
-### Le Spark UI (port 4040) est inaccessible
-
-C'est normal avant la création d'une SparkSession. Exécutez la cellule
-de configuration du notebook (`SparkSession.builder...getOrCreate()`),
-attendez 5 secondes, puis rechargez http://localhost:4040.
-
-### "OutOfMemoryError" dans un notebook
-
-Augmentez la mémoire allouée dans `.env` :
+**Augmenter la mémoire** (`.env`) :
 
 ```
 DOCKER_MEMORY_LIMIT=8g
 SPARK_DRIVER_MEMORY=6g
 ```
 
-Puis reconstruisez et redémarrez :
-
-```bash
-docker compose down
-docker compose up -d
-```
-
-### Le simulateur de flux ne produit pas de fichiers (Jour 2)
-
-Le simulateur doit être lancé dans un terminal **séparé**, à l'intérieur du
-conteneur. Ouvrez un terminal dans JupyterLab (menu File -> New -> Terminal)
-et exécutez :
+**Lancer le simulateur de flux** : dans JupyterLab, ouvrez un terminal
+(File -> New -> Terminal) et exécutez :
 
 ```bash
 python /home/jovyan/scripts/simulateur_flux.py \
@@ -204,17 +183,13 @@ python /home/jovyan/scripts/simulateur_flux.py \
 
 Laissez ce terminal ouvert pendant toute la session de streaming.
 
-### La construction de l'image échoue (réseau)
-
-Les JARs Delta Lake sont téléchargés depuis Maven Central pendant `docker compose build`.
-Si votre réseau bloque Maven Central, demandez à l'enseignant de distribuer
-l'image pré-construite :
+**Utiliser l'image pré-construite** si le réseau bloque Maven Central :
 
 ```bash
 # Enseignant : exporter l'image
 docker save climacity-jupyter:latest | gzip > climacity-jupyter.tar.gz
 
-# Étudiant : importer l'image (pas besoin de build)
+# Étudiant : importer l'image (pas de build nécessaire)
 docker load < climacity-jupyter.tar.gz
 docker compose up -d
 ```
@@ -223,13 +198,11 @@ docker compose up -d
 
 ## Notes techniques
 
-- **PySpark en mode local** : Spark s'exécute entièrement dans le conteneur Jupyter,
-  sans cluster. Tous les coeurs du conteneur sont utilisés (`local[*]`).
-- **Delta Lake** : les JARs sont inclus dans l'image (`${SPARK_HOME}/jars/`).
-  La configuration dans `spark-defaults.conf` active automatiquement les extensions
-  SQL Delta à chaque SparkSession.
-- **MLflow** : le conteneur `jupyter` pointe vers `http://mlflow:5000` via le réseau
+- **PySpark en mode local** : Spark tourne entièrement dans le conteneur Jupyter,
+  sans cluster, et utilise tous les coeurs du conteneur (`local[*]`).
+- **Delta Lake** : les JARs sont dans l'image (`${SPARK_HOME}/jars/`) et
+  `spark-defaults.conf` active les extensions SQL Delta à chaque SparkSession.
+- **MLflow** : le conteneur `jupyter` joint `http://mlflow:5000` par le réseau
   Docker interne. Les runs sont persistés dans le volume nommé `climacity_mlflow_data`.
-- **Données** : le répertoire `./data` de l'hôte est monté dans `/home/jovyan/data`
-  dans le conteneur. Les chemins dans les notebooks utilisent des chemins relatifs
-  (`../data/…`) depuis `/home/jovyan/notebooks`.
+- **Données** : `./data` (hôte) est monté dans `/home/jovyan/data`. Les notebooks
+  utilisent des chemins relatifs (`../data/…`) depuis `/home/jovyan/notebooks`.
